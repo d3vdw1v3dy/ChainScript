@@ -1,0 +1,156 @@
+.pending-blocks {
+  width: 100%;
+}
+
+.pending-header {
+  margin-bottom: 2rem;
+}
+
+.pending-header h2 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.description {
+  color: #666;
+  line-height: 1.6;
+}
+
+.no-pending {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.blocks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pending-block {
+  background: #fff9e6;
+  border: 2px solid #ffd700;
+  border-radius: 10px;
+  padding: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pending-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.block-info {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.block-meta {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.block-number {
+  font-weight: 700;
+  color: #ff8c00;
+  font-size: 1.1rem;
+}
+
+.block-author {
+  color: #666;
+  font-style: italic;
+}
+
+.verification-count {
+  background: #fff3cd;
+  color: #856404;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.block-hash {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #999;
+  background: #f0f0f0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.block-passage {
+  margin-bottom: 1.5rem;
+}
+
+.block-passage h4 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.block-passage p {
+  line-height: 1.8;
+  color: #333;
+  margin-bottom: 0.5rem;
+  white-space: pre-wrap;
+}
+
+.word-count-badge {
+  display: inline-block;
+  background: #e0e0e0;
+  color: #666;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.btn-mine {
+  background: linear-gradient(135deg, #ff8c00 0%, #ff6347 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.btn-mine:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(255, 140, 0, 0.4);
+}
+
+.btn-mine:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #c33;
+  background: #fee;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .block-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

@@ -1,0 +1,135 @@
+.story-view {
+  width: 100%;
+}
+
+.story-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.story-header h2 {
+  color: #333;
+  font-size: 2rem;
+}
+
+.story-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.story-stats span {
+  background: #f0f0f0;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+}
+
+.story-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.story-block {
+  background: #f9f9f9;
+  border-left: 4px solid #667eea;
+  padding: 1.5rem;
+  border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.story-block:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.block-header {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.block-number {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.block-author {
+  color: #666;
+  font-style: italic;
+}
+
+.block-hash {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #999;
+  background: #e0e0e0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.block-passage {
+  line-height: 1.8;
+  color: #333;
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+}
+
+.block-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.link-arrow {
+  font-size: 1.2rem;
+}
+
+.link-text {
+  font-family: monospace;
+}
+
+.empty-story {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #c33;
+  background: #fee;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .story-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .block-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
