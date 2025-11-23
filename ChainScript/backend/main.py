@@ -2,7 +2,7 @@
 ChainScript API Server
 FastAPI backend for the ChainScript storytelling blockchain
 """
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
@@ -62,6 +62,10 @@ class MineRequest(BaseModel):
     story_id: Optional[str] = Field(default="default_story", description="Story ID")
 
 
+class AddFriendRequest(BaseModel):
+    friend_email: str = Field(..., description="Email of the friend to add")
+
+
 class StoryResponse(BaseModel):
     story_id: str
     title: Optional[str] = None
@@ -72,12 +76,66 @@ class StoryResponse(BaseModel):
     story_text: str
 
 
-def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[str]:
-    """Extract user from authorization header (simplified for now)"""
-    if authorization:
-        # In a real implementation, verify Firebase token here
-        # For now, just return a placeholder
-        return authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else None
+async def get_current_user(request: Request) -> Optional[str]:
+    """Extract user email from authorization header"""
+    # Try multiple header name variations (case-insensitive)
+    authorization = (
+        request.headers.get("Authorization") or 
+        request.headers.get("authorization") or
+        request.headers.get("AUTHORIZATION")
+    )
+    
+    if not authorization:
+        print("DEBUG: No Authorization header received")
+        print(f"DEBUG: Available headers: {list(request.headers.keys())}")
+        return None
+    
+    print(f"DEBUG: Authorization header received: {authorization[:50]}...")
+    
+    # Handle both "Bearer token" and just "token" formats
+    token = authorization.replace("Bearer ", "").replace("bearer ", "").strip()
+    
+    # Ensure token is a clean string (handle any encoding issues)
+    token = str(token).strip()
+    
+    if not token:
+        print("DEBUG: No token found in Authorization header")
+        return None
+    
+    print(f"DEBUG: Extracted token (first 50 chars): {token[:50]}...")
+    print(f"DEBUG: Token type: {type(token)}, length: {len(token)}")
+    
+    # Verify Firebase token and extract email
+    decoded_token = firebase_service.verify_token(token)
+    if decoded_token:
+        print(f"DEBUG: Token verified successfully. Token keys: {list(decoded_token.keys())}")
+        # Try to get email from various possible fields
+        email = (
+            decoded_token.get('email') or 
+            decoded_token.get('user_id') or
+            decoded_token.get('uid')
+        )
+        
+        # If no email directly, try to look up user by uid
+        if not email and decoded_token.get('uid'):
+            try:
+                from firebase_admin import auth
+                user_record = auth.get_user(decoded_token['uid'])
+                email = user_record.email
+                print(f"DEBUG: Found email via user lookup: {email}")
+            except Exception as e:
+                print(f"DEBUG: Could not lookup user by uid: {e}")
+        
+        if email:
+            print(f"DEBUG: Successfully authenticated user: {email}")
+            return email
+        else:
+            print("DEBUG: Token verified but could not find email or user_id")
+            print(f"DEBUG: Full decoded token: {decoded_token}")
+    else:
+        print("DEBUG: Token verification failed - firebase_service.verify_token returned None")
+    
+    # If Firebase not initialized or token verification fails, return None
     return None
 
 
@@ -177,11 +235,39 @@ async def mine_block(request: MineRequest, user: Optional[str] = Depends(get_cur
     
     blockchain = blockchains[story_id]
     
+    # Get the block before mining to get the author
+    if request.block_index >= len(blockchain.pending_blocks):
+        raise HTTPException(status_code=404, detail="Block not found in pending blocks")
+    
+    pending_block = blockchain.pending_blocks[request.block_index]
+    block_author = pending_block.author
+    
+    # Get number of blocks in chain before mining
+    chain_length_before = len(blockchain.chain)
+    
     # Mine the block
     success, message = blockchain.mine_block(request.block_index, user or "anonymous")
     
     if not success:
         raise HTTPException(status_code=400, detail=message)
+    
+    # Award 1 point to verifier/miner every time they verify a block
+    if user:
+        firebase_service.increment_user_points(user, 1)
+        print(f"Awarded 1 point to {user} for verifying/mining a block")
+    
+    # Check if block was just verified and added to chain
+    # If chain length increased, the block was successfully verified and added
+    chain_length_after = len(blockchain.chain)
+    if chain_length_after > chain_length_before:
+        # Block was added to chain - award 5 points to the author
+        # Get the author from the newly added block (it's now in the chain)
+        newly_added_block = blockchain.chain[-1]
+        author_email = newly_added_block.author
+        
+        if author_email:
+            firebase_service.increment_user_points(author_email, 5)
+            print(f"Awarded 5 points to {author_email} (author) for having their passage verified and added to chain")
     
     # Save to Firebase
     firebase_service.save_blockchain(story_id, blockchain.to_dict())
@@ -278,6 +364,70 @@ async def get_story_blocks(story_id: str):
         "story_id": story_id,
         "title": blockchain.title,
         "blocks": blockchain.get_chain()
+    }
+
+
+@app.get("/api/leaderboard")
+async def get_leaderboard(user: Optional[str] = Depends(get_current_user), limit: int = 100):
+    """Get leaderboard of users sorted by points"""
+    if user:
+        # If authenticated, show friends leaderboard
+        leaderboard = firebase_service.get_leaderboard(user, limit)
+        return {
+            "leaderboard": leaderboard,
+            "total": len(leaderboard)
+        }
+    else:
+        # If not authenticated, show global leaderboard
+        leaderboard = firebase_service.get_global_leaderboard(limit)
+        return {
+            "leaderboard": leaderboard,
+            "total": len(leaderboard)
+        }
+
+@app.post("/api/friends")
+async def add_friend(request: AddFriendRequest, user: Optional[str] = Depends(get_current_user)):
+    """Add a friend"""
+    if not user:
+        print("DEBUG: add_friend - No user authenticated")
+        print("DEBUG: This means get_current_user returned None")
+        raise HTTPException(status_code=401, detail="Authentication required. Please make sure you are logged in.")
+    
+    print(f"DEBUG: add_friend - User {user} attempting to add friend {request.friend_email}")
+    
+    if request.friend_email == user:
+        raise HTTPException(status_code=400, detail="Cannot add yourself as a friend")
+    
+    # Validate that the friend email exists in Firebase
+    if not firebase_service.user_exists(request.friend_email):
+        raise HTTPException(status_code=404, detail=f"User with email {request.friend_email} not found in the system")
+    
+    success = firebase_service.add_friend(user, request.friend_email)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to add friend")
+    
+    return {
+        "message": "Friend added successfully",
+        "friend_email": request.friend_email
+    }
+
+@app.get("/api/friends")
+async def get_friends(user: Optional[str] = Depends(get_current_user)):
+    """Get user's friends list"""
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    friends = firebase_service.get_user_friends(user)
+    return {
+        "friends": friends
+    }
+
+@app.get("/api/users")
+async def get_all_users(limit: int = 1000):
+    """Get all users (for friend selection)"""
+    users = firebase_service.get_all_users(limit)
+    return {
+        "users": users
     }
 
 

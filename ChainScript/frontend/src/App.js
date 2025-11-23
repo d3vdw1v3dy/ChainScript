@@ -4,6 +4,7 @@ import StoryView from './components/StoryView';
 import CreatePassage from './components/CreatePassage';
 import CreateStory from './components/CreateStory';
 import PendingBlocks from './components/PendingBlocks';
+import Leaderboard from './components/Leaderboard';
 import Auth from './components/Auth';
 import { auth } from './firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -412,6 +413,12 @@ function App() {
             >
               Mine Blocks
             </button>
+            <button
+              className={activeTab === 'leaderboard' ? 'active' : ''}
+              onClick={() => setActiveTab('leaderboard')}
+            >
+              Leaderboard
+            </button>
           </nav>
 
           <div className="content-area">
@@ -436,6 +443,7 @@ function App() {
               />
             )}
             {activeTab === 'mine' && <PendingBlocks storyId={storyId} />}
+            {activeTab === 'leaderboard' && <Leaderboard />}
           </div>
         </div>
       )}
