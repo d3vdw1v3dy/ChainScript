@@ -39,14 +39,32 @@ class FirebaseService:
     def save_blockchain(self, story_id: str, blockchain_data: Dict):
         """Save blockchain data to Firestore"""
         if not self.initialized or not self.db:
+            print(f"Firebase not initialized, cannot save story {story_id}")
             return False
         
         try:
+            # Ensure None values are preserved (Firestore converts None to null)
+            # Make a copy to avoid mutating the original
+            data_to_save = blockchain_data.copy()
+            
+            # Explicitly set None values to ensure they're saved
+            if 'parent_story_id' not in data_to_save:
+                data_to_save['parent_story_id'] = None
+            if 'parent_block_hash' not in data_to_save:
+                data_to_save['parent_block_hash'] = None
+            
+            print(f"Saving story {story_id} to Firebase with:")
+            print(f"  parent_story_id: {data_to_save.get('parent_story_id')}")
+            print(f"  parent_block_hash: {data_to_save.get('parent_block_hash')}")
+            
             doc_ref = self.db.collection('stories').document(story_id)
-            doc_ref.set(blockchain_data)
+            doc_ref.set(data_to_save)
+            print(f"Successfully saved story {story_id} to Firebase")
             return True
         except Exception as e:
             print(f"Error saving blockchain: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def get_blockchain(self, story_id: str) -> Optional[Dict]:

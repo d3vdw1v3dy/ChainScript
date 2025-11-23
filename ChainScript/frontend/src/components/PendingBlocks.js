@@ -52,7 +52,7 @@ function PendingBlocks({ storyId }) {
   return (
     <div className="pending-blocks">
       <div className="pending-header">
-        <h2>⛏️ Mine Pending Blocks</h2>
+        <h2>Mine Pending Blocks</h2>
         <p className="description">
           Verify and mine pending passages. Each block needs 2 verifications before being added to the chain.
         </p>
@@ -94,7 +94,7 @@ function PendingBlocks({ storyId }) {
                 onClick={() => handleMine(index)}
                 disabled={mining[index]}
               >
-                {mining[index] ? 'Mining...' : '⛏️ Mine This Block'}
+                {mining[index] ? 'Mining...' : 'Mine This Block'}
               </button>
             </div>
           ))}

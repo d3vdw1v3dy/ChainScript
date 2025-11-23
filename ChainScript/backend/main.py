@@ -15,7 +15,7 @@ from firebase_service import FirebaseService
 load_dotenv()
 
 app = FastAPI(title="ChainScript API", version="1.0.0")
-
+ 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +48,13 @@ class PassageRequest(BaseModel):
     passage: str = Field(..., min_length=1, description="The story passage (250-500 words)")
     author: str = Field(..., min_length=1, description="Author name")
     story_id: Optional[str] = Field(default="default_story", description="Story ID")
+    branch_from_hash: Optional[str] = Field(default=None, description="Hash of block to branch from (for branching)")
+
+
+class CreateStoryRequest(BaseModel):
+    title: str = Field(..., min_length=1, description="Story title")
+    parent_story_id: Optional[str] = Field(default=None, description="Parent story ID if branching")
+    parent_block_hash: Optional[str] = Field(default=None, description="Block hash to branch from")
 
 
 class MineRequest(BaseModel):
@@ -57,6 +64,9 @@ class MineRequest(BaseModel):
 
 class StoryResponse(BaseModel):
     story_id: str
+    title: Optional[str] = None
+    parent_story_id: Optional[str] = None
+    parent_block_hash: Optional[str] = None
     chain: List[Dict]
     pending_blocks: List[Dict]
     story_text: str
@@ -89,8 +99,12 @@ async def get_all_stories():
         return stories
     
     # Fallback to in-memory stories
-    return [{"id": story_id, "chain": blockchain.get_chain()} 
-            for story_id, blockchain in blockchains.items()]
+    result = []
+    for story_id, blockchain in blockchains.items():
+        story_data = blockchain.to_dict()
+        story_data['id'] = story_id
+        result.append(story_data)
+    return result
 
 
 @app.get("/api/story/{story_id}", response_model=StoryResponse)
@@ -108,6 +122,9 @@ async def get_story(story_id: str):
     
     return StoryResponse(
         story_id=story_id,
+        title=blockchain.title,
+        parent_story_id=blockchain.parent_story_id,
+        parent_block_hash=blockchain.parent_block_hash,
         chain=blockchain.get_chain(),
         pending_blocks=blockchain.get_pending_blocks(),
         story_text=blockchain.get_story()
@@ -134,8 +151,11 @@ async def create_passage(request: PassageRequest):
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
     
-    # Create block
-    block = blockchain.add_block(request.passage, request.author)
+    # Create block (with optional branching)
+    try:
+        block = blockchain.add_block(request.passage, request.author, request.branch_from_hash)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     # Save to Firebase
     firebase_service.save_blockchain(story_id, blockchain.to_dict())
@@ -182,6 +202,82 @@ async def get_pending_blocks(story_id: str = default_story_id):
     return {
         "pending_blocks": blockchain.get_pending_blocks(),
         "story_id": story_id
+    }
+
+
+@app.post("/api/story")
+async def create_story(request: CreateStoryRequest):
+    """Create a new story"""
+    import uuid
+    story_id = f"story_{uuid.uuid4().hex[:8]}"
+    
+    print(f"=== Creating story: {story_id} ===")
+    print(f"Title: {request.title}")
+    print(f"Parent story ID: {request.parent_story_id}")
+    print(f"Parent block hash: {request.parent_block_hash}")
+    
+    # If branching, verify parent story and block exist
+    if request.parent_story_id and request.parent_block_hash:
+        print(f"Verifying parent story {request.parent_story_id} and block {request.parent_block_hash}")
+        if request.parent_story_id not in blockchains:
+            saved_data = firebase_service.get_blockchain(request.parent_story_id)
+            if saved_data:
+                blockchains[request.parent_story_id] = ChainScript.from_dict(saved_data)
+            else:
+                raise HTTPException(status_code=404, detail="Parent story not found")
+        
+        parent_blockchain = blockchains[request.parent_story_id]
+        parent_block = parent_blockchain.get_block_by_hash(request.parent_block_hash)
+        if not parent_block:
+            raise HTTPException(status_code=404, detail="Parent block not found")
+        print(f"Parent block verified: {parent_block.hash}")
+    
+    # Create new blockchain
+    blockchain = ChainScript(
+        title=request.title,
+        parent_story_id=request.parent_story_id,
+        parent_block_hash=request.parent_block_hash
+    )
+    
+    print(f"Blockchain created with:")
+    print(f"  title: {blockchain.title}")
+    print(f"  parent_story_id: {blockchain.parent_story_id}")
+    print(f"  parent_block_hash: {blockchain.parent_block_hash}")
+    
+    blockchains[story_id] = blockchain
+    
+    # Prepare data for Firebase
+    blockchain_data = blockchain.to_dict()
+    print(f"Data to save to Firebase: {blockchain_data}")
+    
+    # Save to Firebase
+    save_result = firebase_service.save_blockchain(story_id, blockchain_data)
+    print(f"Firebase save result: {save_result}")
+    
+    return {
+        "message": "Story created successfully",
+        "story_id": story_id,
+        "story": blockchain_data
+    }
+
+
+@app.get("/api/story/{story_id}/blocks")
+async def get_story_blocks(story_id: str):
+    """Get all blocks from a story (for branching selection)"""
+    if story_id not in blockchains:
+        saved_data = firebase_service.get_blockchain(story_id)
+        if saved_data:
+            blockchain = ChainScript.from_dict(saved_data)
+            blockchains[story_id] = blockchain
+        else:
+            raise HTTPException(status_code=404, detail="Story not found")
+    else:
+        blockchain = blockchains[story_id]
+    
+    return {
+        "story_id": story_id,
+        "title": blockchain.title,
+        "blocks": blockchain.get_chain()
     }
 
 

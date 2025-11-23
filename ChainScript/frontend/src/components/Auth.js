@@ -3,10 +3,10 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { auth } from '../firebase/config';
 import './Auth.css';
 
-function Auth() {
+function Auth({ initialMode = 'signin', onSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +20,10 @@ function Auth() {
         await createUserWithEmailAndPassword(auth, email, password);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
+      }
+      // Close modal on success
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (err) {
       setError(err.message);
